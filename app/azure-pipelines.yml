@@ -68,7 +68,13 @@ stages:
       - job: trivy_fs
         steps:
           - checkout: self
-          - template: .azure/templates/install-trivy.yml
+            fetchDepth: 0
+          - script: |
+              set -euo pipefail
+              curl -sSfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+              | sudo tar -xz -C /usr/local/bin trivy
+              trivy --version
+              displayName: 'Install Trivy v$(TRIVY_VERSION)'
           - script: |
               set -euo pipefail
               trivy fs \
