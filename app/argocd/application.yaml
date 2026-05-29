@@ -1,0 +1,41 @@
+# ArgoCD Application (pull-based GitOps).
+#
+# NOTE: This manifest is the source-of-truth definition of the Application, kept
+# here for visibility/review. In this project it is *bootstrapped declaratively
+# by Terraform* (infra/ → argocd-apps Helm chart) so that nothing is applied to
+# the cluster by hand. You can also `kubectl apply -f` it for a manual bootstrap.
+#
+# Once created, ArgoCD continuously watches `repoURL@targetRevision:path`,
+# renders the kustomization, and reconciles the cluster to match Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: reto-app
+  namespace: argocd
+  finalizers:
+    # Ensure child resources are cascade-deleted when the Application is removed.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # In the two-repo production layout this points at the *app repo* and
+    # path would be `k8s`. Here both live under one repo at `app/k8s`.
+    repoURL: https://github.com/svillegasc/reto-devops.git
+    targetRevision: main
+    path: app/k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: reto-app
+  syncPolicy:
+    automated:
+      prune: true      # delete resources removed from Git
+      selfHeal: true   # revert manual `kubectl` drift back to Git state
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

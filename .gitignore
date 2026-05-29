@@ -1,4 +1,18 @@
-# Local .terraform directories
+# ---- Python (backend) ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ---- OS / editor ----
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# ---- Local .terraform directories ----
 .terraform/
 
 # .tfstate files

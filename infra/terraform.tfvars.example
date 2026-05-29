@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and adjust as needed.
+# (terraform.tfvars is gitignored — *.tfvars are excluded by .gitignore.)
+
+kubeconfig_path = "~/.kube/config"
+kube_context    = "kind-reto-devops"
+
+argocd_namespace     = "argocd"
+argocd_chart_version = "7.7.11"
+
+app_repo_url        = "https://github.com/svillegasc/reto-devops.git"
+app_target_revision = "main"
+app_path            = "app/k8s"
+app_namespace       = "reto-app"

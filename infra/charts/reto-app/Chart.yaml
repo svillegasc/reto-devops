@@ -1,0 +1,6 @@
+apiVersion: v2
+name: reto-app
+description: Bootstraps the ArgoCD Application that deploys the reto-devops workload (GitOps, pull-based).
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

@@ -1,0 +1,10 @@
+# Defaults — overridden by Terraform via `set` blocks (see infra/main.tf).
+argocdNamespace: argocd
+
+# Git source ArgoCD watches.
+repoURL: https://github.com/svillegasc/reto-devops.git
+targetRevision: main
+path: app/k8s
+
+# Where the workload is deployed.
+destinationNamespace: reto-app

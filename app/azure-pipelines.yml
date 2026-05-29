@@ -1,0 +1,191 @@
+# =============================================================================
+# CI pipeline — reto-devops  (Azure DevOps)
+#
+# Shift-Left Security model. Stages, in order:
+#   1. SecretScan      — Gitleaks: detect committed credentials.
+#   2. SCA             — Trivy (fs): scan source dependencies for CVEs.
+#   3. BuildAndScan    — build both images (multi-stage), then Trivy image scan.
+#   4. Push            — push the scanned, immutable images to Docker Hub.
+#   5. GitOpsUpdate    — bump the kustomize image tags to the commit SHA and
+#                        auto-commit, so ArgoCD pulls the new version.
+#
+# Immutability: images are tagged with the full commit SHA (Build.SourceVersion)
+# — never `latest`.
+# =============================================================================
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - app/*            # only changes under the app repo trigger CI
+    exclude:
+      - app/k8s/*        # avoid a loop: the GitOps auto-commit edits app/k8s
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  DOCKERHUB_NAMESPACE: svillegasc
+  BACKEND_IMAGE: $(DOCKERHUB_NAMESPACE)/reto-backend
+  FRONTEND_IMAGE: $(DOCKERHUB_NAMESPACE)/reto-frontend
+  # Immutable tag = full commit SHA. Build.SourceVersion is the triggering SHA.
+  IMAGE_TAG: $(Build.SourceVersion)
+  TRIVY_VERSION: '0.58.1'
+  GITLEAKS_VERSION: '8.21.2'
+
+stages:
+  # ---------------------------------------------------------------------------
+  - stage: SecretScan
+    displayName: '🔐 Secret Scanning (Gitleaks)'
+    jobs:
+      - job: gitleaks
+        steps:
+          - checkout: self
+            fetchDepth: 0          # full history so Gitleaks can scan commits
+          - script: |
+              set -euo pipefail
+              curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+                | tar -xz -C /tmp gitleaks
+              /tmp/gitleaks detect \
+                --source . \
+                --redact \
+                --report-format sarif \
+                --report-path "$(Build.ArtifactStagingDirectory)/gitleaks.sarif" \
+                --exit-code 1
+            displayName: 'Run Gitleaks'
+          - task: PublishBuildArtifacts@1
+            condition: always()
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)/gitleaks.sarif'
+              artifactName: gitleaks-report
+
+  # ---------------------------------------------------------------------------
+  - stage: SCA
+    displayName: '📦 Software Composition Analysis (Trivy fs)'
+    dependsOn: SecretScan
+    jobs:
+      - job: trivy_fs
+        steps:
+          - checkout: self
+          - template: .azure/templates/install-trivy.yml
+          - script: |
+              set -euo pipefail
+              trivy fs \
+                --scanners vuln \
+                --severity HIGH,CRITICAL \
+                --ignore-unfixed \
+                --exit-code 1 \
+                --format table \
+                app/
+            displayName: 'Trivy dependency scan (fail on HIGH/CRITICAL)'
+
+  # ---------------------------------------------------------------------------
+  - stage: BuildAndScan
+    displayName: '🏗️  Build images + Container Scanning (Trivy image)'
+    dependsOn: SCA
+    jobs:
+      - job: build_scan
+        steps:
+          - checkout: self
+          - template: .azure/templates/install-trivy.yml
+
+          - script: |
+              set -euo pipefail
+              docker build \
+                --build-arg GIT_SHA=$(IMAGE_TAG) \
+                --build-arg APP_VERSION=$(Build.BuildNumber) \
+                -t $(BACKEND_IMAGE):$(IMAGE_TAG) \
+                app/backend
+              docker build \
+                -t $(FRONTEND_IMAGE):$(IMAGE_TAG) \
+                app/frontend
+            displayName: 'Build backend + frontend images (multi-stage)'
+
+          - script: |
+              set -euo pipefail
+              for img in "$(BACKEND_IMAGE):$(IMAGE_TAG)" "$(FRONTEND_IMAGE):$(IMAGE_TAG)"; do
+                echo "== Scanning $img =="
+                trivy image \
+                  --severity HIGH,CRITICAL \
+                  --ignore-unfixed \
+                  --exit-code 1 \
+                  --format table \
+                  "$img"
+              done
+            displayName: 'Trivy image scan (gate before push)'
+
+          # Persist the built images so the Push stage reuses the exact bits
+          # that were scanned (no rebuild between scan and push).
+          - script: |
+              set -euo pipefail
+              mkdir -p "$(Build.ArtifactStagingDirectory)/images"
+              docker save "$(BACKEND_IMAGE):$(IMAGE_TAG)"  -o "$(Build.ArtifactStagingDirectory)/images/backend.tar"
+              docker save "$(FRONTEND_IMAGE):$(IMAGE_TAG)" -o "$(Build.ArtifactStagingDirectory)/images/frontend.tar"
+            displayName: 'Save scanned images as artifacts'
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)/images'
+              artifactName: images
+
+  # ---------------------------------------------------------------------------
+  - stage: Push
+    displayName: '⬆️  Build & Push to Docker Hub'
+    dependsOn: BuildAndScan
+    jobs:
+      - job: push
+        steps:
+          - checkout: none
+          - task: DownloadBuildArtifacts@1
+            inputs:
+              artifactName: images
+              downloadPath: '$(Pipeline.Workspace)'
+          - script: |
+              set -euo pipefail
+              docker load -i "$(Pipeline.Workspace)/images/backend.tar"
+              docker load -i "$(Pipeline.Workspace)/images/frontend.tar"
+            displayName: 'Load scanned images'
+          # DOCKERHUB_USERNAME / DOCKERHUB_TOKEN are secret pipeline variables
+          # (configure a variable group or secret vars in the pipeline UI).
+          - script: |
+              set -euo pipefail
+              echo "$(DOCKERHUB_TOKEN)" | docker login -u "$(DOCKERHUB_USERNAME)" --password-stdin
+              docker push $(BACKEND_IMAGE):$(IMAGE_TAG)
+              docker push $(FRONTEND_IMAGE):$(IMAGE_TAG)
+              docker logout
+            displayName: 'Push immutable images (tag = commit SHA)'
+
+  # ---------------------------------------------------------------------------
+  - stage: GitOpsUpdate
+    displayName: '🔄 GitOps Update (bump tag + auto-commit)'
+    dependsOn: Push
+    jobs:
+      - job: gitops
+        steps:
+          - checkout: self
+            persistCredentials: true   # reuse the build's git creds to push back
+          - script: |
+              set -euo pipefail
+              # Install kustomize.
+              curl -sSfL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+              sudo mv kustomize /usr/local/bin/
+
+              cd app/k8s
+              kustomize edit set image \
+                $(BACKEND_IMAGE)=$(BACKEND_IMAGE):$(IMAGE_TAG) \
+                $(FRONTEND_IMAGE)=$(FRONTEND_IMAGE):$(IMAGE_TAG)
+              cd -
+
+              git config user.email "azure-pipelines@dev.azure.com"
+              git config user.name  "Azure Pipelines (GitOps Bot)"
+              git add app/k8s/kustomization.yaml
+
+              if git diff --cached --quiet; then
+                echo "No image changes to commit."
+                exit 0
+              fi
+
+              # [skip ci] prevents this auto-commit from re-triggering the pipeline.
+              git commit -m "ci(gitops): bump images to $(IMAGE_TAG) [skip ci]"
+              git push origin HEAD:$(Build.SourceBranchName)
+            displayName: 'Update kustomize image tags and push'

@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# All resources are deployed into this namespace (ArgoCD also creates it).
+namespace: reto-app
+
+resources:
+  - namespace.yaml
+  - backend-deployment.yaml
+  - backend-service.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
+
+# === GitOps image management ===
+# The CI "GitOps Update" stage runs `kustomize edit set image` to bump these
+# `newTag` values to the immutable commit SHA, then auto-commits. ArgoCD detects
+# the change in Git and syncs it to the cluster (pull-based). This block is the
+# single source of truth for which image versions are deployed.
+images:
+  - name: svillegasc/reto-backend
+    newTag: initial
+  - name: svillegasc/reto-frontend
+    newTag: initial
