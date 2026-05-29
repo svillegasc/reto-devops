@@ -108,8 +108,6 @@ stages:
                 echo "== Scanning $img =="
                 trivy image \
                   --severity CRITICAL \
-                # Activar en caso de validación para fallo por vulnerabilidad
-                #--severity HIGH,CRITICAL \
                   --ignore-unfixed \
                   --exit-code 1 \
                   --format table \
