@@ -26,7 +26,7 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  DOCKERHUB_NAMESPACE: svillegasc
+  DOCKERHUB_NAMESPACE: svillegas
   BACKEND_IMAGE: $(DOCKERHUB_NAMESPACE)/reto-backend
   FRONTEND_IMAGE: $(DOCKERHUB_NAMESPACE)/reto-frontend
   # Immutable tag = full commit SHA. Build.SourceVersion is the triggering SHA.
