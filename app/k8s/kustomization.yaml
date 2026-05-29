@@ -5,11 +5,11 @@ kind: Kustomization
 namespace: reto-app
 
 resources:
-  - namespace.yaml
-  - backend-deployment.yaml
-  - backend-service.yaml
-  - frontend-deployment.yaml
-  - frontend-service.yaml
+- namespace.yaml
+- backend-deployment.yaml
+- backend-service.yaml
+- frontend-deployment.yaml
+- frontend-service.yaml
 
 # === GitOps image management ===
 # The CI "GitOps Update" stage runs `kustomize edit set image` to bump these
@@ -17,7 +17,13 @@ resources:
 # the change in Git and syncs it to the cluster (pull-based). This block is the
 # single source of truth for which image versions are deployed.
 images:
-  - name: svillegasc/reto-backend
-    newTag: initial
-  - name: svillegasc/reto-frontend
-    newTag: initial
+- name: svillegas/reto-backend
+  newName: svillegas/reto-backend
+  newTag: ac9929d4ac1af786747463be25bdecd05635835d
+- name: svillegas/reto-frontend
+  newName: svillegas/reto-frontend
+  newTag: ac9929d4ac1af786747463be25bdecd05635835d
+- name: svillegasc/reto-backend
+  newTag: initial
+- name: svillegasc/reto-frontend
+  newTag: initial
