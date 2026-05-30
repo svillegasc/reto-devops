@@ -1,3 +1,13 @@
+output "cluster_name" {
+  description = "Nombre del clúster kind."
+  value       = var.cluster_name
+}
+
+output "kube_context" {
+  description = "Contexto kubeconfig efectivo usado para conectarse al clúster."
+  value       = local.kube_context
+}
+
 output "argocd_namespace" {
   description = "Namespace where ArgoCD is installed."
   value       = helm_release.argocd.namespace

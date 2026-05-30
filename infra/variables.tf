@@ -1,3 +1,16 @@
+# ---- Cluster (kind) ---------------------------------------------------------
+variable "manage_cluster" {
+  description = "Si es true, Terraform crea/destruye el clúster kind vía null_resource + CLI."
+  type        = bool
+  default     = true
+}
+
+variable "cluster_name" {
+  description = "Nombre del clúster kind. El contexto kubeconfig será kind-<cluster_name>."
+  type        = string
+  default     = "reto-devops"
+}
+
 # ---- Cluster connection -----------------------------------------------------
 variable "kubeconfig_path" {
   description = "Path to the kubeconfig file for the local kind cluster."
@@ -6,9 +19,9 @@ variable "kubeconfig_path" {
 }
 
 variable "kube_context" {
-  description = "kubeconfig context for the kind cluster (kind names it kind-<name>)."
+  description = "kubeconfig context. Si se deja vacío se deriva como kind-<cluster_name>."
   type        = string
-  default     = "kind-reto-devops"
+  default     = ""
 }
 
 # ---- ArgoCD install ---------------------------------------------------------

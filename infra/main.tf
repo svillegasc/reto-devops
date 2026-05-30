@@ -20,6 +20,9 @@ resource "helm_release" "argocd" {
   namespace        = var.argocd_namespace
   create_namespace = true
 
+  # El clúster kind debe existir antes de instalar nada en él.
+  depends_on = [null_resource.kind_cluster]
+
   # Wait until the chart's resources are ready before creating the Application.
   wait    = true
   timeout = 600

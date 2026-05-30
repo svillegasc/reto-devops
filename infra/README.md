@@ -22,18 +22,25 @@ GitOps.
 Esto es lo **único** que la automatización aplica al clúster: las cargas de la
 aplicación nunca se aplican a mano — ArgoCD las reconcilia desde Git.
 
-## El clúster (`kind`)
+## El clúster (`kind`) — creado desde Terraform
 
-El clúster se crea con el CLI de `kind` (necesita Docker) usando
-`kind/kind-cluster.yaml`, que mapea el NodePort 30080 → puerto 8080 del host:
+El clúster lo **crea el propio Terraform** mediante `null_resource.kind_cluster`
+(en `cluster.tf`), que invoca el CLI de `kind` con `local-exec` usando
+`kind/kind-cluster.yaml` (mapea el NodePort 30080 → puerto 8080 del host).
 
-```bash
-kind create cluster --name reto-devops --config kind/kind-cluster.yaml
-```
+- **¿Por qué `kind`?** Es de las opciones más livianas: corre el clúster como
+  contenedores en Docker, sin VM (a diferencia de minikube con su driver por
+  defecto), por lo que consume muy pocos recursos.
+- **¿Por qué `null_resource` + CLI y no un provider?** Por transparencia y
+  seguridad: no se introduce un provider de terceros poco mantenido (p. ej.
+  `tehcyx/kind`); sólo se ejecutan comandos `kind` auditables. Los comandos son
+  **idempotentes** (no recrea el clúster si ya existe) e incluyen un provisioner
+  de `destroy` que lo elimina con `terraform destroy`.
 
-> Se mantiene la creación del clúster fuera de Terraform a propósito: el reto
-> acota Terraform a aprovisionar ArgoCD vía `helm_provider`. (Opcionalmente
-> podría usarse el provider `tehcyx/kind`.)
+Requisitos previos: **Docker** y el **CLI de `kind`** instalados en la máquina.
+
+Para no gestionar el clúster desde Terraform (p. ej. si ya existe uno), poné
+`manage_cluster = false` en `terraform.tfvars`.
 
 ## Uso
 
@@ -52,7 +59,9 @@ para leer el password admin y el nombre de la Application.
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `kube_context` | `kind-reto-devops` | Contexto kubeconfig del clúster. |
+| `manage_cluster` | `true` | Si Terraform crea/destruye el clúster kind. |
+| `cluster_name` | `reto-devops` | Nombre del clúster kind. |
+| `kube_context` | `""` → `kind-<cluster_name>` | Contexto kubeconfig (vacío = derivado). |
 | `argocd_chart_version` | `7.7.11` | Versión del chart `argo-cd`. |
 | `app_repo_url` | repo de este proyecto | Repo Git que ArgoCD observa. |
 | `app_path` | `app/k8s` | Ruta de los manifiestos (en layout de 2 repos sería `k8s`). |
@@ -70,6 +79,5 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 ## Limpieza
 
 ```bash
-terraform destroy
-kind delete cluster --name reto-devops
+terraform destroy   # desinstala ArgoCD y elimina el clúster kind
 ```
