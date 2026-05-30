@@ -53,7 +53,7 @@ def info() -> dict:
 def message() -> dict:
     """The single business endpoint the frontend renders."""
     return {
-        "message": "Hello from the reto-devops backend API 👋",
+        "message": "Hello from the reto-devops backend API 👋 Probando un cambio",
         "version": APP_VERSION,
         "git_sha": GIT_SHA,
     }
