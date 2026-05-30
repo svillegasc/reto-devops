@@ -170,8 +170,10 @@ stages:
               # `image:` field of each Deployment in place (no kustomize needed).
               yq -i '.spec.template.spec.containers[0].image = "$(BACKEND_IMAGE):$(IMAGE_TAG)"' \
                 app/k8s/backend-deployment.yaml
+              cat app/k8s/backend-deployment.yaml
               yq -i '.spec.template.spec.containers[0].image = "$(FRONTEND_IMAGE):$(IMAGE_TAG)"' \
                 app/k8s/frontend-deployment.yaml
+              cat app/k8s/frontend-deployment.yaml
 
               git config user.email "azure-pipelines@dev.azure.com"
               git config user.name  "Azure Pipelines (GitOps Bot)"
