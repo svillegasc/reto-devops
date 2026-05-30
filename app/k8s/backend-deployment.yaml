@@ -31,7 +31,7 @@ spec:
           # `yq` to set this `image` field to the immutable commit SHA, then
           # auto-commits. ArgoCD detects the change in Git and syncs it to the
           # cluster (pull-based). Never `latest`.
-          image: svillegas/reto-backend:3f5dad01ff8a60670132bc53d65898aa1b3f435d
+          image: svillegas/reto-backend:f37d33065b8c79628f088de0a5047cad18b61ead
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
