@@ -29,7 +29,7 @@ spec:
         - name: frontend
           # Image tag managed by the CI "GitOps Update" stage via `yq` (commit
           # SHA, never `latest`); ArgoCD syncs the change pull-based.
-          image: svillegas/reto-frontend:69cad2d67734a4273a47788eaf01286e10f9e6bc
+          image: svillegas/reto-frontend:34f0561fbaffcb662aa0fb67ac16a40e85bdca0b
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
