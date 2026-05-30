@@ -19,10 +19,10 @@ resources:
 images:
 - name: svillegas/reto-backend
   newName: svillegas/reto-backend
-  newTag: ac9929d4ac1af786747463be25bdecd05635835d
+  newTag: 7ce09c7f9edbe766bf88bf04e355bcbf4e845ab3
 - name: svillegas/reto-frontend
   newName: svillegas/reto-frontend
-  newTag: ac9929d4ac1af786747463be25bdecd05635835d
+  newTag: 7ce09c7f9edbe766bf88bf04e355bcbf4e845ab3
 - name: svillegasc/reto-backend
   newTag: initial
 - name: svillegasc/reto-frontend
