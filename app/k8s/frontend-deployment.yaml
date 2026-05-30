@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
+  namespace: reto-app
   labels:
     app.kubernetes.io/name: frontend
     app.kubernetes.io/part-of: reto-devops
@@ -26,7 +27,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: svillegasc/reto-frontend:initial
+          # Image tag managed by the CI "GitOps Update" stage via `yq` (commit
+          # SHA, never `latest`); ArgoCD syncs the change pull-based.
+          image: svillegas/reto-frontend:ac9929d4ac1af786747463be25bdecd05635835d
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

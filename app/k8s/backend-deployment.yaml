@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
+  namespace: reto-app
   labels:
     app.kubernetes.io/name: backend
     app.kubernetes.io/part-of: reto-devops
@@ -26,9 +27,11 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backend
-          # Image tag is managed by the CI "GitOps Update" stage via kustomize
-          # (kustomization.yaml -> images[].newTag). Never `latest`.
-          image: svillegasc/reto-backend:initial
+          # Image tag is managed by the CI "GitOps Update" stage, which runs
+          # `yq` to set this `image` field to the immutable commit SHA, then
+          # auto-commits. ArgoCD detects the change in Git and syncs it to the
+          # cluster (pull-based). Never `latest`.
+          image: svillegas/reto-backend:ac9929d4ac1af786747463be25bdecd05635835d
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

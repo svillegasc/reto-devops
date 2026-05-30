@@ -15,8 +15,8 @@ Kubernetes (`kind`), con:
 > ⚠️ **Nota de ejecución:** este repositorio contiene todos los artefactos
 > listos para reproducir. La máquina donde se generó **no tenía Docker/kind**
 > instalados, por lo que el flujo end-to-end no se ejecutó aquí; sí se validó
-> estáticamente (Terraform `fmt`, `helm lint`/`template`, `kubectl kustomize`,
-> parseo de todos los YAML). Las instrucciones de reproducción están abajo.
+> estáticamente (Terraform `fmt`, `helm lint`/`template`, `kubectl apply
+> --dry-run`, parseo de todos los YAML). Las instrucciones de reproducción están abajo.
 
 ---
 
@@ -58,7 +58,7 @@ representados aquí como dos raíces autocontenidas:
         │ 3. Build (Dockerfiles multi-stage)           │
         │ 4. Container Scan (Trivy image)  ── gate ──▶ │
         │ 5. Push imágenes inmutables (tag = SHA) ─────┼──▶ Docker Hub
-        │ 6. GitOps Update: kustomize set image        │        │
+        │ 6. GitOps Update: yq set image en Deployments│        │
         │    + auto-commit a app/k8s                   │        │
         └────────────────────────────────────────────┘        │
                             │ (git commit)                      │
@@ -106,8 +106,8 @@ de facto para secret scanning con escaneo de historial.
 - **GitOps / Single Source of Truth:** ningún `kubectl apply` manual de cargas.
   ArgoCD reconcilia desde Git (`selfHeal: true` revierte drift manual).
 - **Inmutabilidad:** imágenes etiquetadas con el **commit SHA**
-  (`Build.SourceVersion`), nunca `latest`. El tag se gestiona vía
-  `kustomization.yaml` (`images[].newTag`).
+  (`Build.SourceVersion`), nunca `latest`. El tag se gestiona vía `yq`
+  directamente en el campo `image:` de cada Deployment.
 - **Mínimo privilegio:**
   - Namespaces separados (`argocd`, `reto-app`).
   - `Namespace` con **Pod Security Standard `restricted`** forzado.
@@ -168,8 +168,8 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 
 ### Paso 4 — CD automático (ArgoCD)
 
-El auto-commit del paso 3 cambia `app/k8s/kustomization.yaml`. ArgoCD lo
-detecta y **sincroniza solo**. Verifica:
+El auto-commit del paso 3 cambia los manifiestos `app/k8s/*-deployment.yaml`.
+ArgoCD lo detecta y **sincroniza solo**. Verifica:
 
 ```bash
 kubectl get applications -n argocd
@@ -200,7 +200,7 @@ kind delete cluster --name reto-devops
 ├── app/                       # ── REPO 1: código + CI + manifiestos GitOps
 │   ├── backend/               # FastAPI + Dockerfile multi-stage
 │   ├── frontend/              # Nginx + Dockerfile multi-stage
-│   ├── k8s/                   # Deployment/Service + kustomization (fuente de verdad CD)
+│   ├── k8s/                   # Namespace/Deployment/Service planos (fuente de verdad CD)
 │   ├── argocd/                # Application de referencia
 │   ├── .azure/templates/      # plantillas reutilizables del pipeline
 │   └── azure-pipelines.yml    # pipeline de CI

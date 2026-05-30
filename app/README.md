@@ -35,21 +35,24 @@ docker build -t svillegasc/reto-backend:dev  --build-arg GIT_SHA=$(git rev-parse
 docker build -t svillegasc/reto-frontend:dev frontend
 ```
 
-## Manifiestos `/k8s` (kustomize)
+## Manifiestos `/k8s` (manifiestos planos + ArgoCD)
 
-`kustomization.yaml` agrupa namespace + Deployments + Services y, sobre todo,
-gestiona los **tags de imagen** en el bloque `images:`. Render:
+El directorio `k8s/` contiene los manifiestos planos (Namespace + Deployments +
+Services), sin kustomize ni Helm. ArgoCD apunta su `Application` a este path y
+aplica directamente todos los YAML del directorio (pull-based). Validación:
 
 ```bash
-kubectl kustomize k8s
+kubectl apply --dry-run=client -f k8s/
 ```
 
-El job *GitOps Update* del pipeline ejecuta:
+El **tag de imagen** vive directamente en el campo `image:` de cada Deployment.
+El job *GitOps Update* del pipeline lo actualiza con `yq`:
 
 ```bash
-kustomize edit set image \
-  svillegasc/reto-backend=svillegasc/reto-backend:<SHA> \
-  svillegasc/reto-frontend=svillegasc/reto-frontend:<SHA>
+yq -i '.spec.template.spec.containers[0].image = "svillegas/reto-backend:<SHA>"' \
+  k8s/backend-deployment.yaml
+yq -i '.spec.template.spec.containers[0].image = "svillegas/reto-frontend:<SHA>"' \
+  k8s/frontend-deployment.yaml
 ```
 
 y hace auto-commit. ArgoCD detecta el cambio y sincroniza (pull-based).

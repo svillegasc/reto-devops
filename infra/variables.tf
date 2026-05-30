@@ -51,7 +51,7 @@ variable "app_target_revision" {
 }
 
 variable "app_path" {
-  description = "Path within the repo containing the kustomization."
+  description = "Path within the repo containing the plain k8s manifests ArgoCD applies."
   type        = string
   default     = "app/k8s"
 }

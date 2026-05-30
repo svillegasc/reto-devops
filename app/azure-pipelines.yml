@@ -6,8 +6,8 @@
 #   2. SCA             — Trivy (fs): scan source dependencies for CVEs.
 #   3. BuildAndScan    — build both images (multi-stage), then Trivy image scan.
 #   4. Push            — push the scanned, immutable images to Docker Hub.
-#   5. GitOpsUpdate    — bump the kustomize image tags to the commit SHA and
-#                        auto-commit, so ArgoCD pulls the new version.
+#   5. GitOpsUpdate    — bump the Deployment image tags (via yq) to the commit
+#                        SHA and auto-commit, so ArgoCD pulls the new version.
 #
 # Immutability: images are tagged with the full commit SHA (Build.SourceVersion)
 # — never `latest`.
@@ -20,7 +20,7 @@ trigger:
     include:
       - app/*            # only changes under the app repo trigger CI
     exclude:
-      - app/k8s/*        # avoid a loop: the GitOps auto-commit edits app/k8s
+      - app/k8s/*        # avoid a loop: the GitOps auto-commit edits the manifests in app/k8s
 
 pool:
   vmImage: ubuntu-latest
@@ -166,19 +166,16 @@ stages:
             persistCredentials: true   # reuse the build's git creds to push back
           - script: |
               set -euo pipefail
-              # Install kustomize.
-              curl -sSfL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-              sudo mv kustomize /usr/local/bin/
-
-              cd app/k8s
-              kustomize edit set image \
-                $(BACKEND_IMAGE)=$(BACKEND_IMAGE):$(IMAGE_TAG) \
-                $(FRONTEND_IMAGE)=$(FRONTEND_IMAGE):$(IMAGE_TAG)
-              cd -
+              # yq is preinstalled on the ubuntu-latest hosted image. It edits the
+              # `image:` field of each Deployment in place (no kustomize needed).
+              yq -i '.spec.template.spec.containers[0].image = "$(BACKEND_IMAGE):$(IMAGE_TAG)"' \
+                app/k8s/backend-deployment.yaml
+              yq -i '.spec.template.spec.containers[0].image = "$(FRONTEND_IMAGE):$(IMAGE_TAG)"' \
+                app/k8s/frontend-deployment.yaml
 
               git config user.email "azure-pipelines@dev.azure.com"
               git config user.name  "Azure Pipelines (GitOps Bot)"
-              git add app/k8s/kustomization.yaml
+              git add app/k8s/backend-deployment.yaml app/k8s/frontend-deployment.yaml
 
               if git diff --cached --quiet; then
                 echo "No image changes to commit."
@@ -188,4 +185,4 @@ stages:
               # [skip ci] prevents this auto-commit from re-triggering the pipeline.
               git commit -m "ci(gitops): bump images to $(IMAGE_TAG) [skip ci]"
               git push origin HEAD:$(Build.SourceBranchName)
-            displayName: 'Update kustomize image tags and push'
+            displayName: 'Update Deployment image tags and push'

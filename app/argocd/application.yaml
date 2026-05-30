@@ -6,7 +6,8 @@
 # the cluster by hand. You can also `kubectl apply -f` it for a manual bootstrap.
 #
 # Once created, ArgoCD continuously watches `repoURL@targetRevision:path`,
-# renders the kustomization, and reconciles the cluster to match Git.
+# applies the plain manifests found in that directory, and reconciles the
+# cluster to match Git.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -23,6 +24,10 @@ spec:
     repoURL: https://github.com/svillegasc/reto-devops.git
     targetRevision: main
     path: app/k8s
+    # Plain manifests in a directory (no kustomize/helm). Recurse off: all
+    # YAMLs live flat in app/k8s.
+    directory:
+      recurse: false
   destination:
     server: https://kubernetes.default.svc
     namespace: reto-app

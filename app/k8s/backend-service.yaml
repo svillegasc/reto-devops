@@ -3,6 +3,7 @@ kind: Service
 metadata:
   # Name is significant: Nginx proxies to http://backend:8000 via this DNS name.
   name: backend
+  namespace: reto-app
   labels:
     app.kubernetes.io/name: backend
     app.kubernetes.io/part-of: reto-devops
